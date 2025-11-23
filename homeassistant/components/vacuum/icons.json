@@ -23,7 +23,7 @@
     "set_fan_speed": {
       "service": "mdi:fan"
     },
-    "set_water_level": {
+    "set_mop_intensity": {
       "service": "mdi:water-opacity"
     },
     "set_cleaning_mode": {
@@ -31,6 +31,15 @@
     },
     "start": {
       "service": "mdi:play"
+    },
+    "start_auto_empty": {
+      "service": "mdi:delete-empty"
+    },
+    "start_mop_cleaning": {
+      "service": "mdi:spray-bottle"
+    },
+    "start_mop_drying": {
+      "service": "mdi:air-purifier"
     },
     "start_pause": {
       "service": "mdi:play-pause"

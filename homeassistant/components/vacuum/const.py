@@ -16,7 +16,7 @@ DOMAIN = "vacuum"
 
 # Default lists for vacuum capabilities
 DEFAULT_CLEANING_MODES = ["Vacuuming", "Mopping", "Vacuuming and mopping"]
-DEFAULT_WATER_LEVELS = ["Slightly dry", "Moist", "Wet"]
+DEFAULT_MOP_INTENSITIES = ["Slightly dry", "Moist", "Wet"]
 
 
 class VacuumActivity(StrEnum):

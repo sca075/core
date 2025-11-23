@@ -106,13 +106,34 @@ set_cleaning_mode:
       selector:
         text:
 
-set_water_level:
+set_mop_intensity:
   target:
     entity:
       domain: vacuum
   fields:
-    water_level:
+    mop_intensity:
       required: true
       example: "Moist"
       selector:
         text:
+
+start_auto_empty:
+  target:
+    entity:
+      domain: vacuum
+      supported_features:
+        - vacuum.VacuumEntityFeature.AUTO_EMPTY
+
+start_mop_drying:
+  target:
+    entity:
+      domain: vacuum
+      supported_features:
+        - vacuum.VacuumEntityFeature.DRYING_MOP
+
+start_mop_cleaning:
+  target:
+    entity:
+      domain: vacuum
+      supported_features:
+        - vacuum.VacuumEntityFeature.MOP_CLEANING

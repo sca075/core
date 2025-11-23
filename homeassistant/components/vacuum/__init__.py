@@ -50,7 +50,7 @@ from .const import (  # noqa: F401
     _DEPRECATED_STATE_VACUUMING,
     _DEPRECATED_STATE_VACUUMING_AND_MOPPING,
     DEFAULT_CLEANING_MODES,
-    DEFAULT_WATER_LEVELS,
+    DEFAULT_MOP_INTENSITIES,
     DOMAIN,
     VacuumActivity,
 )
@@ -63,17 +63,20 @@ PLATFORM_SCHEMA = cv.PLATFORM_SCHEMA
 PLATFORM_SCHEMA_BASE = cv.PLATFORM_SCHEMA_BASE
 SCAN_INTERVAL = timedelta(seconds=20)
 
+ATTR_AUTO_EMPTY_STATUS = "auto_empty_status"
 ATTR_BATTERY_ICON = "battery_icon"
 ATTR_CLEANED_AREA = "cleaned_area"
 ATTR_FAN_SPEED = "fan_speed"
 ATTR_FAN_SPEED_LIST = "fan_speed_list"
+ATTR_MOP_CLEANING_STATUS = "mop_cleaning_status"
+ATTR_MOP_DRYING_STATUS = "mop_drying_status"
 ATTR_PARAMS = "params"
 ATTR_STATUS = "status"
 ATTR_CLEANING_MODE = "cleaning_mode"
 ATTR_CLEANING_MODE_LIST = "cleaning_mode_list"
-ATTR_WATER_LEVEL = "water_level"
-ATTR_CURRENT_WATER_LEVEL = "water_level"
-ATTR_WATER_LEVEL_LIST = "water_level_list"
+ATTR_MOP_INTENSITY = "mop_intensity"
+ATTR_CURRENT_MOP_INTENSITY = "mop_intensity"
+ATTR_MOP_INTENSITY_LIST = "mop_intensity_list"
 ATTR_EMPTY_REQUIRED = "empty_required"
 
 SERVICE_CLEAN_SPOT = "clean_spot"
@@ -82,7 +85,10 @@ SERVICE_RETURN_TO_BASE = "return_to_base"
 SERVICE_SEND_COMMAND = "send_command"
 SERVICE_SET_FAN_SPEED = "set_fan_speed"
 SERVICE_SET_CLEANING_MODE = "set_cleaning_mode"
-SERVICE_SET_WATER_LEVEL = "set_water_level"
+SERVICE_SET_MOP_INTENSITY = "set_mop_intensity"
+SERVICE_START_AUTO_EMPTY = "start_auto_empty"
+SERVICE_START_MOP_DRYING = "start_mop_drying"
+SERVICE_START_MOP_CLEANING = "start_mop_cleaning"
 SERVICE_START_PAUSE = "start_pause"
 SERVICE_START = "start"
 SERVICE_PAUSE = "pause"
@@ -113,6 +119,8 @@ class VacuumEntityFeature(IntFlag):
     LOCATE = 512
     MAP = 2048
     MOP = 16384
+    MOP_CLEANING = 1048576
+    MOP_INTENSITY = 524288
     MOP_VACUUM = 32768
     PAUSE = 4
     RETURN_HOME = 16
@@ -123,7 +131,7 @@ class VacuumEntityFeature(IntFlag):
     STOP = 8
     TURN_OFF = 2  # Deprecated, not supported by StateVacuumEntity
     TURN_ON = 1  # Deprecated, not supported by StateVacuumEntity
-    WATER_LEVEL = 524288
+
 
 
 # mypy: disallow-any-generics
@@ -192,10 +200,10 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         [VacuumEntityFeature.CLEANING_MODE],
     )
     component.async_register_entity_service(
-        SERVICE_SET_WATER_LEVEL,
-        {vol.Required(ATTR_WATER_LEVEL): cv.string},
-        "async_set_water_level",
-        [VacuumEntityFeature.WATER_LEVEL],
+        SERVICE_SET_MOP_INTENSITY,
+        {vol.Required(ATTR_MOP_INTENSITY): cv.string},
+        "async_set_mop_intensity",
+        [VacuumEntityFeature.MOP_INTENSITY],
     )
     component.async_register_entity_service(
         SERVICE_SEND_COMMAND,
@@ -205,6 +213,24 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         },
         "async_send_command",
         [VacuumEntityFeature.SEND_COMMAND],
+    )
+    component.async_register_entity_service(
+        SERVICE_START_AUTO_EMPTY,
+        None,
+        "async_start_auto_empty",
+        [VacuumEntityFeature.AUTO_EMPTY],
+    )
+    component.async_register_entity_service(
+        SERVICE_START_MOP_DRYING,
+        None,
+        "async_start_mop_drying",
+        [VacuumEntityFeature.DRYING_MOP],
+    )
+    component.async_register_entity_service(
+        SERVICE_START_MOP_CLEANING,
+        None,
+        "async_start_mop_cleaning",
+        [VacuumEntityFeature.MOP_CLEANING],
     )
 
     return True
@@ -227,14 +253,17 @@ class StateVacuumEntityDescription(EntityDescription, frozen_or_thawed=True):
 STATE_VACUUM_CACHED_PROPERTIES_WITH_ATTR_ = {
     "supported_features",
     "auto_empty_count",
+    "auto_empty_status",
     "battery_level",
     "battery_icon",
     "fan_speed",
     "fan_speed_list",
     "cleaning_mode",
     "cleaning_modes",
-    "water_level",
-    "water_levels",
+    "mop_intensity",
+    "mop_intensities",
+    "mop_cleaning_status",
+    "mop_drying_status",
     "activity",
 }
 
@@ -247,18 +276,21 @@ class StateVacuumEntity(
     entity_description: StateVacuumEntityDescription
 
     _entity_component_unrecorded_attributes = frozenset(
-        {ATTR_FAN_SPEED_LIST, ATTR_CLEANING_MODE_LIST, ATTR_WATER_LEVEL_LIST}
+        {ATTR_FAN_SPEED_LIST, ATTR_CLEANING_MODE_LIST, ATTR_MOP_INTENSITY_LIST}
     )
 
     _attr_auto_empty_count: int | None = None
+    _attr_auto_empty_status: str | None = None
     _attr_battery_icon: str
     _attr_battery_level: int | None = None
     _attr_fan_speed: str | None = None
     _attr_fan_speed_list: list[str]
     _attr_cleaning_mode: str | None = None
     _attr_cleaning_modes_list: list[str] = DEFAULT_CLEANING_MODES
-    _attr_water_level: str | None = None
-    _attr_water_level_list: list[str] = DEFAULT_WATER_LEVELS
+    _attr_mop_intensity: str | None = None
+    _attr_mop_intensity_list: list[str] = DEFAULT_MOP_INTENSITIES
+    _attr_mop_cleaning_status: str | None = None
+    _attr_mop_drying_status: str | None = None
     _attr_empty_required: bool | None = None
     _attr_activity: VacuumActivity | None = None
     _attr_supported_features: VacuumEntityFeature = VacuumEntityFeature(0)
@@ -406,8 +438,8 @@ class StateVacuumEntity(
         if VacuumEntityFeature.CLEANING_MODE in supported_features:
             data[ATTR_CLEANING_MODE_LIST] = self.cleaning_modes_list
 
-        if VacuumEntityFeature.WATER_LEVEL in supported_features:
-            data[ATTR_WATER_LEVEL_LIST] = self.water_level_list
+        if VacuumEntityFeature.MOP_INTENSITY in supported_features:
+            data[ATTR_MOP_INTENSITY_LIST] = self.mop_intensity_list
 
         return data if data else None
 
@@ -432,14 +464,29 @@ class StateVacuumEntity(
         return self._attr_cleaning_modes_list
 
     @cached_property
-    def water_level(self) -> str | None:
-        """Return the water level of the vacuum cleaner."""
-        return self._attr_water_level
+    def mop_intensity(self) -> str | None:
+        """Return the mop intensity of the vacuum cleaner."""
+        return self._attr_mop_intensity
 
     @cached_property
-    def water_level_list(self) -> list[str]:
-        """Get the list of available water levels of the vacuum cleaner."""
-        return self._attr_water_level_list
+    def mop_intensity_list(self) -> list[str]:
+        """Get the list of available mop intensity levels of the vacuum cleaner."""
+        return self._attr_mop_intensity_list
+
+    @cached_property
+    def auto_empty_status(self) -> str | None:
+        """Return the auto empty status of the docking station."""
+        return self._attr_auto_empty_status
+
+    @cached_property
+    def mop_drying_status(self) -> str | None:
+        """Return the mop drying status of the docking station."""
+        return self._attr_mop_drying_status
+
+    @cached_property
+    def mop_cleaning_status(self) -> str | None:
+        """Return the mop cleaning status of the docking station."""
+        return self._attr_mop_cleaning_status
 
     @cached_property
     def is_dock_empty_required(self) -> bool:
@@ -467,8 +514,17 @@ class StateVacuumEntity(
         if VacuumEntityFeature.CLEANING_MODE in supported_features:
             data[ATTR_CLEANING_MODE] = self.cleaning_mode
 
-        if VacuumEntityFeature.WATER_LEVEL in supported_features:
-            data[ATTR_CURRENT_WATER_LEVEL] = self.water_level
+        if VacuumEntityFeature.MOP_INTENSITY in supported_features:
+            data[ATTR_CURRENT_MOP_INTENSITY] = self.mop_intensity
+
+        if VacuumEntityFeature.AUTO_EMPTY in supported_features:
+            data[ATTR_AUTO_EMPTY_STATUS] = self.auto_empty_status
+
+        if VacuumEntityFeature.DRYING_MOP in supported_features:
+            data[ATTR_MOP_DRYING_STATUS] = self.mop_drying_status
+
+        if VacuumEntityFeature.MOP_CLEANING in supported_features:
+            data[ATTR_MOP_CLEANING_STATUS] = self.mop_cleaning_status
 
         return data
 
@@ -570,17 +626,17 @@ class StateVacuumEntity(
             partial(self.set_cleaning_mode, cleaning_mode, **kwargs)
         )
 
-    def set_water_level(self, water_level: str, **kwargs: Any) -> None:
-        """Set water level."""
+    def set_mop_intensity(self, mop_intensity: str, **kwargs: Any) -> None:
+        """Set mop intensity."""
         raise NotImplementedError
 
-    async def async_set_water_level(self, water_level: str, **kwargs: Any) -> None:
-        """Set water level.
+    async def async_set_mop_intensity(self, mop_intensity: str, **kwargs: Any) -> None:
+        """Set mop intensity.
 
         This method must be run in the event loop.
         """
         await self.hass.async_add_executor_job(
-            partial(self.set_water_level, water_level, **kwargs)
+            partial(self.set_mop_intensity, mop_intensity, **kwargs)
         )
 
     def send_command(
@@ -627,6 +683,39 @@ class StateVacuumEntity(
         This method must be run in the event loop.
         """
         await self.hass.async_add_executor_job(self.pause)
+
+    def start_auto_empty(self) -> None:
+        """Start auto-emptying the dustbin at the docking station."""
+        raise NotImplementedError
+
+    async def async_start_auto_empty(self) -> None:
+        """Start auto-emptying the dustbin at the docking station.
+
+        This method must be run in the event loop.
+        """
+        await self.hass.async_add_executor_job(self.start_auto_empty)
+
+    def start_mop_drying(self) -> None:
+        """Start drying the mop at the docking station."""
+        raise NotImplementedError
+
+    async def async_start_mop_drying(self) -> None:
+        """Start drying the mop at the docking station.
+
+        This method must be run in the event loop.
+        """
+        await self.hass.async_add_executor_job(self.start_mop_drying)
+
+    def start_mop_cleaning(self) -> None:
+        """Start cleaning the mop at the docking station."""
+        raise NotImplementedError
+
+    async def async_start_mop_cleaning(self) -> None:
+        """Start cleaning the mop at the docking station.
+
+        This method must be run in the event loop.
+        """
+        await self.hass.async_add_executor_job(self.start_mop_cleaning)
 
 
 # As we import deprecated constants from the const module, we need to add these two functions

@@ -18,7 +18,11 @@ from homeassistant.components.vacuum import (
     SERVICE_RETURN_TO_BASE,
     SERVICE_SEND_COMMAND,
     SERVICE_SET_FAN_SPEED,
+    SERVICE_SET_MOP_INTENSITY,
     SERVICE_START,
+    SERVICE_START_AUTO_EMPTY,
+    SERVICE_START_MOP_CLEANING,
+    SERVICE_START_MOP_DRYING,
     SERVICE_STOP,
     StateVacuumEntity,
     VacuumActivity,
@@ -628,3 +632,211 @@ async def test_vacuum_not_log_deprecated_battery_properties_during_init(
         len([record for record in caplog.records if record.levelno >= logging.WARNING])
         == 0
     )
+
+
+async def test_mop_intensity(hass: HomeAssistant, config_flow_fixture: None) -> None:
+    """Test set vacuum mop intensity."""
+
+    class MockVacuumWithMop(MockVacuum):
+        """Mock vacuum with mop intensity support."""
+
+        def __init__(self, **kwargs: Any) -> None:
+            """Initialize a mock vacuum entity."""
+            super().__init__(**kwargs)
+            self._attr_supported_features = (
+                self.supported_features | VacuumEntityFeature.MOP_INTENSITY
+            )
+            self._attr_mop_intensity = "Moist"
+            self._attr_mop_intensity_list = ["Slightly dry", "Moist", "Wet"]
+
+        def set_mop_intensity(self, mop_intensity: str, **kwargs: Any) -> None:
+            """Set the mop intensity."""
+            self._attr_mop_intensity = mop_intensity
+
+    mock_vacuum = MockVacuumWithMop(
+        name="Testing",
+        entity_id="vacuum.testing",
+    )
+    config_entry = MockConfigEntry(domain="test")
+    config_entry.add_to_hass(hass)
+
+    mock_integration(
+        hass,
+        MockModule(
+            "test",
+            async_setup_entry=help_async_setup_entry_init,
+            async_unload_entry=help_async_unload_entry,
+        ),
+    )
+    setup_test_component_platform(hass, DOMAIN, [mock_vacuum], from_config_entry=True)
+    assert await hass.config_entries.async_setup(config_entry.entry_id)
+
+    await hass.services.async_call(
+        DOMAIN,
+        SERVICE_SET_MOP_INTENSITY,
+        {"entity_id": mock_vacuum.entity_id, "mop_intensity": "Wet"},
+        blocking=True,
+    )
+
+    assert mock_vacuum.mop_intensity == "Wet"
+
+async def test_start_auto_empty(
+    hass: HomeAssistant, config_flow_fixture: None
+) -> None:
+    """Test start auto empty service."""
+
+    calls = []
+
+    class MockVacuumWithAutoEmpty(MockVacuum):
+        """Mock vacuum with auto empty support."""
+
+        def __init__(self, calls: list[str], **kwargs: Any) -> None:
+            """Initialize a mock vacuum entity."""
+            super().__init__(**kwargs)
+            self._attr_supported_features = (
+                self.supported_features | VacuumEntityFeature.AUTO_EMPTY
+            )
+            self._attr_auto_empty_status = "idle"
+            self._calls = calls
+
+        def start_auto_empty(self) -> None:
+            """Start auto-emptying."""
+            self._calls.append("start_auto_empty")
+            self._attr_auto_empty_status = "emptying"
+
+    mock_vacuum = MockVacuumWithAutoEmpty(
+        name="Testing",
+        entity_id="vacuum.testing",
+        calls=calls,
+    )
+    config_entry = MockConfigEntry(domain="test")
+    config_entry.add_to_hass(hass)
+
+    mock_integration(
+        hass,
+        MockModule(
+            "test",
+            async_setup_entry=help_async_setup_entry_init,
+            async_unload_entry=help_async_unload_entry,
+        ),
+    )
+    setup_test_component_platform(hass, DOMAIN, [mock_vacuum], from_config_entry=True)
+    assert await hass.config_entries.async_setup(config_entry.entry_id)
+
+    await hass.services.async_call(
+        DOMAIN,
+        SERVICE_START_AUTO_EMPTY,
+        {"entity_id": mock_vacuum.entity_id},
+        blocking=True,
+    )
+
+    assert "start_auto_empty" in calls
+    assert mock_vacuum.auto_empty_status == "emptying"
+
+
+async def test_start_mop_drying(
+    hass: HomeAssistant, config_flow_fixture: None
+) -> None:
+    """Test start mop drying service."""
+
+    calls = []
+
+    class MockVacuumWithMopDrying(MockVacuum):
+        """Mock vacuum with mop drying support."""
+
+        def __init__(self, calls: list[str], **kwargs: Any) -> None:
+            """Initialize a mock vacuum entity."""
+            super().__init__(**kwargs)
+            self._attr_supported_features = (
+                self.supported_features | VacuumEntityFeature.DRYING_MOP
+            )
+            self._attr_mop_drying_status = "idle"
+            self._calls = calls
+
+        def start_mop_drying(self) -> None:
+            """Start mop drying."""
+            self._calls.append("start_mop_drying")
+            self._attr_mop_drying_status = "drying"
+
+    mock_vacuum = MockVacuumWithMopDrying(
+        name="Testing",
+        entity_id="vacuum.testing",
+        calls=calls,
+    )
+    config_entry = MockConfigEntry(domain="test")
+    config_entry.add_to_hass(hass)
+
+    mock_integration(
+        hass,
+        MockModule(
+            "test",
+            async_setup_entry=help_async_setup_entry_init,
+            async_unload_entry=help_async_unload_entry,
+        ),
+    )
+    setup_test_component_platform(hass, DOMAIN, [mock_vacuum], from_config_entry=True)
+    assert await hass.config_entries.async_setup(config_entry.entry_id)
+
+    await hass.services.async_call(
+        DOMAIN,
+        SERVICE_START_MOP_DRYING,
+        {"entity_id": mock_vacuum.entity_id},
+        blocking=True,
+    )
+
+    assert "start_mop_drying" in calls
+    assert mock_vacuum.mop_drying_status == "drying"
+
+
+async def test_start_mop_cleaning(
+    hass: HomeAssistant, config_flow_fixture: None
+) -> None:
+    """Test start mop cleaning service."""
+
+    calls = []
+
+    class MockVacuumWithMopCleaning(MockVacuum):
+        """Mock vacuum with mop cleaning support."""
+
+        def __init__(self, calls: list[str], **kwargs: Any) -> None:
+            """Initialize a mock vacuum entity."""
+            super().__init__(**kwargs)
+            self._attr_supported_features = (
+                self.supported_features | VacuumEntityFeature.MOP_CLEANING
+            )
+            self._attr_mop_cleaning_status = "idle"
+            self._calls = calls
+
+        def start_mop_cleaning(self) -> None:
+            """Start mop cleaning."""
+            self._calls.append("start_mop_cleaning")
+            self._attr_mop_cleaning_status = "cleaning"
+
+    mock_vacuum = MockVacuumWithMopCleaning(
+        name="Testing",
+        entity_id="vacuum.testing",
+        calls=calls,
+    )
+    config_entry = MockConfigEntry(domain="test")
+    config_entry.add_to_hass(hass)
+
+    mock_integration(
+        hass,
+        MockModule(
+            "test",
+            async_setup_entry=help_async_setup_entry_init,
+            async_unload_entry=help_async_unload_entry,
+        ),
+    )
+    setup_test_component_platform(hass, DOMAIN, [mock_vacuum], from_config_entry=True)
+    assert await hass.config_entries.async_setup(config_entry.entry_id)
+
+    await hass.services.async_call(
+        DOMAIN,
+        SERVICE_START_MOP_CLEANING,
+        {"entity_id": mock_vacuum.entity_id},
+        blocking=True,
+    )
+
+    assert "start_mop_cleaning" in calls
+    assert mock_vacuum.mop_cleaning_status == "cleaning"

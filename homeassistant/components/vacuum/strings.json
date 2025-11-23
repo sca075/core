@@ -88,19 +88,31 @@
       },
       "name": "Set fan speed"
     },
-    "set_water_level": {
-      "description": "Sets the water level of the vacuum cleaner.",
+    "set_mop_intensity": {
+      "description": "Sets the mop intensity of the vacuum cleaner.",
       "fields": {
-        "water_level": {
-          "description": "Water level. The available levels depend on the integration.",
-          "name": "Water level"
+        "mop_intensity": {
+          "description": "Mop intensity. The available levels depend on the integration.",
+          "name": "Mop intensity"
         }
       },
-      "name": "Set water level"
+      "name": "Set mop intensity"
     },
     "start": {
       "description": "Starts or resumes the cleaning task.",
       "name": "[%key:common::action::start%]"
+    },
+    "start_auto_empty": {
+      "description": "Starts auto-emptying the dustbin at the docking station.",
+      "name": "Start auto-empty"
+    },
+    "start_mop_cleaning": {
+      "description": "Starts cleaning the mop at the docking station.",
+      "name": "Start mop cleaning"
+    },
+    "start_mop_drying": {
+      "description": "Starts drying the mop at the docking station.",
+      "name": "Start mop drying"
     },
     "start_pause": {
       "description": "Starts, pauses, or resumes the cleaning task.",
